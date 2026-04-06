@@ -19,6 +19,10 @@ function handleMessage(messageObj){
                 return sendMessage(messageObj,"Testing if it works");
                 
                 break;
+            case 'test2':
+                return sendMessage(messageObj,"Testing if test2 works");
+                
+                break;
             case 'view':
                 return sendMessage(messageObj,"i am going be showing foods here");
                 
