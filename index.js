@@ -1,6 +1,20 @@
 const express = require("express");
 const PORT = process.env.PORT || 5123;
-const {handler}=require("./controller")
+const { handleMessage } = require("./lib/main");
+
+
+async function handler(req,method) {
+    
+    const {body}= req;
+   
+        if(body){
+            const messageObj=body.message;
+            await handleMessage(messageObj);
+
+        }
+        return;
+    
+}
 
 const app = express();
 app.use(express.json());
