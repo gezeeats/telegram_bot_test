@@ -2,6 +2,14 @@ const { axiosInstance } = require("./axios");
 function delay(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
+function sendMainKeyboardBelow(chatId) {
+    return axiosInstance.post("sendMessage", {
+        chat_id: chatId,
+        // text: "\u200B",
+        text: ".", 
+        reply_markup: getMainKeyboard()
+    });
+}
 
 // Only declare foodItems once
 const foodItems = [
@@ -46,7 +54,101 @@ const restaurants = [
         menuCallback: "menu_9",
     }
 ];
+const orderList = [
+    {
+        restaurant: "Restaurant R9 New2",
+        distance: "0.86 KM",
+        delivery: 40,
+        items: [
+            { name: "Food Test r9", price: 412, qty: 1 },
+            { name: "Food Test r7", price: 412, qty: 5 },
+            { name: "Food Test r2", price: 412, qty: 2 }
+        ]
+    },
+    {
+        restaurant: "Restaurant R16",
+        distance: "0.86 KM",
+        delivery: 60,
+        items: [
+            { name: "Food Test r16", price: 444, qty: 2 }
+        ]
+    },
+    {
+        restaurant: "Restaurant R2",
+        distance: "0.86 KM",
+        delivery: 40,
+        items: [
+            { name: "Food Test r2", price: 412, qty: 1 }
+        ]
+    }
+];
 
+
+async function sendOrderList(messageObj) {
+    const chatId = messageObj.chat.id;
+
+    // ✅ Show typing indicator
+    await axiosInstance.post("sendChatAction", {
+        chat_id: chatId,
+        action: "typing"
+    });
+
+    await delay(1500);
+
+    // 🔁 Loop through each restaurant order
+    for (const order of orderList) {
+
+        let itemsText = "";
+        let itemsTotal = 0;
+        let totalQty = 0;
+
+        // 🔁 Loop through items inside the order
+        for (const item of order.items) {
+            const total = item.price * item.qty;
+
+            itemsTotal += total;
+            totalQty += item.qty;
+
+            itemsText += `🍽️ ${item.name} x${item.qty} → *${total} Birr*\n`;
+        }
+
+        const totalPrice = itemsTotal + order.delivery;
+
+        await axiosInstance.post("sendMessage", {
+            chat_id: chatId,
+
+            text: `
+🏪 *${order.restaurant}*
+
+${itemsText}
+
+📦 Items: *${totalQty}*
+
+💰 Food Total: *${itemsTotal} Birr*
+🚚 Delivery: *${order.delivery} Birr*
+💵 *Total: ${totalPrice} Birr*
+
+📍 Distance: ${order.distance}
+            `,
+            parse_mode: "Markdown",
+            reply_markup: {
+                inline_keyboard: [
+                    [
+                        { text: "⋯ More Option", callback_data: `order_${order.restaurant}` }
+                    ],
+                    [
+                        { text: "📄 View Detail", callback_data: `order_${order.restaurant}` }
+                    ],
+                   
+                ]
+            }
+        });
+
+        await delay(300);
+    }
+
+    await sendMainKeyboardBelow(chatId);
+}
 async function sendFoodList(messageObj) {
     const chatId = messageObj.chat.id;
 
@@ -76,11 +178,19 @@ async function sendFoodList(messageObj) {
             `,
             parse_mode: "Markdown",
             reply_markup: {
+                // ...getMainKeyboard(), 
                 inline_keyboard: [
-                    [{ text: `🏪 ${item.restaurant}`, callback_data: item.restaurantCallback }],
                     [
-                        { text: "🛒 Order", callback_data: item.orderCallback },
-                        { text: "➕ Add to Cart", callback_data: item.cartCallback }
+                        { text: "🍔 Order", callback_data: item.orderCallback },
+                    ],
+                    [
+                        { text: `🏪 ${item.restaurant}`, callback_data: item.restaurantCallback },
+                        { text: "➕ Add to Cart", callback_data: item.cartCallback },
+                        { text: "❤️ Favorite", callback_data: `fav_${item.orderCallback}` }
+                    ],
+                    [
+                        { text: `🏪 ${item.restaurant}`, callback_data: item.restaurantCallback }
+                       
                     ]
                 ]
             }
@@ -89,7 +199,63 @@ async function sendFoodList(messageObj) {
         // optional small delay between items
         await delay(300);
     }
+    await sendMainKeyboardBelow(chatId);
+
 }
+async function sendFavFoodList(messageObj) {
+    const chatId = messageObj.chat.id;
+
+    // ✅ Show typing indicator
+    await axiosInstance.post("sendChatAction", {
+        chat_id: chatId,
+        action: "typing"
+    });
+
+    // Simulate delay OR fetch real data
+    await delay(1500);
+
+    // Send food list
+    for (const item of foodItems) {
+        await axiosInstance.post("sendPhoto", {
+            chat_id: chatId,
+            photo: item.photo,
+            caption: `
+🏪 ${item.restaurant}
+🍽️ *${item.name}*
+
+💰 Price: *${item.price} Birr*
+💰 Delivery Price: *${50} Birr*
+💰 TotlalPrice: *${item.price+50} Birr*
+📍 Distance: ${item.distance} KM
+⭐ Score: ${item.score}
+            `,
+            parse_mode: "Markdown",
+            reply_markup: {
+                // ...getMainKeyboard(), 
+                inline_keyboard: [
+                    [
+                        { text: "🍔 Order", callback_data: item.orderCallback },
+                    ],
+                    [
+                        { text: `🏪 ${item.restaurant}`, callback_data: item.restaurantCallback },
+                        { text: "➕ Add to Cart", callback_data: item.cartCallback },
+                        { text: "❌ Remove Favorite", callback_data: `fav_${item.orderCallback}` }
+                    ],
+                    [
+                        { text: `🏪 ${item.restaurant}`, callback_data: item.restaurantCallback }
+                       
+                    ]
+                ]
+            }
+        });
+
+        // optional small delay between items
+        await delay(300);
+    }
+    await sendMainKeyboardBelow(chatId);
+
+}
+
 async function sendCartList(messageObj) {
     const chatId = messageObj.chat.id;
 
@@ -131,10 +297,11 @@ async function sendCartList(messageObj) {
         parse_mode: "Markdown",
         reply_markup: {
             inline_keyboard: [
-                [{ text: "🛒 Order", callback_data: "order_cart" }]
+                [{ text: "🍔 Order", callback_data: "order_cart" }]
             ]
         }
     });
+      await sendMainKeyboardBelow(chatId);
 }
 async function sendRestaurantList(messageObj) {
     const chatId = messageObj.chat.id;
@@ -170,84 +337,169 @@ async function sendRestaurantList(messageObj) {
         // optional small delay between items
         await delay(300);
     }
+      await sendMainKeyboardBelow(chatId);
+
+
+    
 }
 
+// function sendMessage(messageObj, messageText){
+//     return axiosInstance.post("sendMessage", {
+//         chat_id: messageObj.chat.id,
+//         text: messageText,
+//         reply_markup: {
+//             remove_keyboard: true
+//         }
+//     });
+// }
 function sendMessage(messageObj, messageText){
     return axiosInstance.post("sendMessage", {
         chat_id: messageObj.chat.id,
         text: messageText,
-        reply_markup: {
-            remove_keyboard: true
-        }
+        reply_markup: getMainKeyboard()   
     });
 }
 
-// function handleMessage(messageObj) {
 
-//     // ✅ HANDLE CONTACT FIRST
-//     if (messageObj.contact) {
-//         const phone = messageObj.contact.phone_number;
+function sendMessageWithKeyboard(messageObj, messageText, keyboard) {
+    return axiosInstance.post("sendMessage", {
+        chat_id: messageObj.chat.id,
+        text: messageText,
+        reply_markup: keyboard
+    });
+}
+function getOthersKeyboard() {
+    return {
+        keyboard: [
+            [
+                { text: "🧾 Order History" },
+                { text: "🔍 Search" }
+            ],
+            [
+                { text: "👤 View Profile" },
+                { text: "✏️ Edit Profile" }
+            ],
+            [
+                { text: "⬅️ Back" }
+            ]
+        ],
+        resize_keyboard: true,
+        is_persistent: true
+    };
+}
+function sendOthersPage(messageObj) {
+    return sendMessageWithKeyboard(
+        messageObj,
+        ".",
+        // "⚙️ *Other Options*\nChoose what you want:",
+        getOthersKeyboard()
+    );
+}
+function getMainKeyboard() {
+    return {
+        keyboard: [
+            [
+                { text: "🏪 Restaurants" },
+                { text: "🍽 Food" },
+           { text: "❤️ Favorite" },
 
-//         console.log("User phone:", phone);
-
-//         return sendMessage(
-//             messageObj,
-//             `✅ Phone received: ${phone}`
-//         );
-//     }
-
-//     const messageText = messageObj?.text || '';
-
-//     if (messageText.startsWith("/")) {
-//         const command = messageText.slice(1);
-
-//         switch (command) {
-//             case 'start':
-//                 return sendMessage(messageObj, "Hi! I'm a bot. I can help you get started");
-
-//             case 'food':
-//                 return sendFoodList(messageObj);
-
-//             case 'res':
-//                 return sendRestaurantList(messageObj);
-
-//             default:
-//                 return sendMessage(messageObj, "Unknown command");
-//         }
-//     } else {
-//         return sendMessage(messageObj, messageText || "Send a command 🙂");
-//     }
-// }
+            ],[
+                { text: "🛒 Cart" },
+                { text: "📦 Orders" },
+                { text: "⚙️ others" },
+            ]
+        ],
+        resize_keyboard: true,   // makes buttons fit nicely
+        is_persistent: true      // keeps it always visible
+    };
+}
 function handleMessage(messageObj) {
 
-    // ❌ Ignore non-text messages (like contact, photo, etc.)
-    if (!messageObj.text) {
-        console.log("Non-text message ignored");
-        return; // do nothing
-    }
+    if (!messageObj.text) return;
 
     const messageText = messageObj.text;
 
+    // 🔹 MAIN MENU BUTTONS
+    if (messageText === "🍽 Food") {
+        return sendFoodList(messageObj);
+    }
+
+    if (messageText === "🏪 Restaurants") {
+        return sendRestaurantList(messageObj);
+    }
+    if (messageText === "❤️ Favorite") {
+        return sendFavFoodList(messageObj);
+    }
+
+    if (messageText === "🛒 Cart") {
+        return sendCartList(messageObj);
+    }
+
+    if (messageText === "⚙️ others") {
+        return sendOthersPage(messageObj);
+    }
+
+    // 🔹 OTHERS PAGE BUTTONS
+    if (messageText === "📦 Orders") {
+           return sendOrderList(messageObj);
+        // return sendMessageWithKeyboard(
+        //     messageObj,
+        //     "📦 Your current orders...",
+        //     getOthersKeyboard()
+        // );
+    }
+
+    if (messageText === "🧾 Order History") {
+        return sendMessageWithKeyboard(
+            messageObj,
+            "🧾 Your past orders...",
+            getOthersKeyboard()
+        );
+    }
+
+    if (messageText === "👤 View Profile") {
+        return sendMessageWithKeyboard(
+            messageObj,
+            "👤 Profile info:\nName: John Doe\nPhone: 09xxxxxxx",
+            getOthersKeyboard()
+        );
+    }
+
+    if (messageText === "✏️ Edit Profile") {
+        return sendMessageWithKeyboard(
+            messageObj,
+            "✏️ Send new name or phone to update profile",
+            getOthersKeyboard()
+        );
+    }
+
+    // 🔙 BACK BUTTON
+    if (messageText === "⬅️ Back") {
+        // return sendMessageWithKeyboard(
+        //     messageObj,
+        //     "🏠 Back to main menu",
+        //     getMainKeyboard()
+        // );
+        return sendRestaurantList(messageObj);
+    }
+
+    // 🔹 COMMANDS
     if (messageText.startsWith("/")) {
         const command = messageText.slice(1);
 
-        switch (command) {
-            case 'start':
-                return sendMessage(messageObj, "Hi! I'm a bot. I can help you get started");
-
-            case 'food':
-                return sendFoodList(messageObj);
-
-            case 'res':
-                return sendRestaurantList(messageObj);
-            case 'cart':
-                return sendCartList(messageObj);
-
-            default:
-                return sendMessage(messageObj, "Unknown command");
+        if (command === "start") {
+            return sendMessageWithKeyboard(
+                messageObj,
+                "Welcome! Use buttons below 👇",
+                getMainKeyboard()
+            );
         }
-    } else {
-        return sendMessage(messageObj, "Please use commands like /start, /food, /res");
     }
+
+    return sendMessageWithKeyboard(
+        messageObj,
+        "Use the buttons below 👇",
+        getMainKeyboard()
+    );
 }
 module.exports = { handleMessage };
